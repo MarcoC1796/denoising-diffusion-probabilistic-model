@@ -159,6 +159,7 @@ class DiffusionTrainer:
 
 def main() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
+    print("device:", device)
     config = UNetConfig()
     model = UNet(config).to(device)
     trainer = DiffusionTrainer(model=model, model_config=config, device=device)
