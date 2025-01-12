@@ -21,6 +21,7 @@ class DiffusionTrainer:
         device: str = "cpu",
         epochs: int = 10,
         batch_size: int = 64,
+        lr_rate: float = 0.001,
         max_train_steps: int | None = None,
         max_eval_steps: int | None = 100,
         num_diffusion_timesteps: int = 1000,
@@ -38,7 +39,7 @@ class DiffusionTrainer:
         self.alpha_bar_cache = AlphaBarCache(T=self.T, device=self.device)
         self.loss_fn = nn.MSELoss()
         self.optimizer = torch.optim.Adam(
-            params=self.model.parameters(), lr=0.002
+            params=self.model.parameters(), lr=lr_rate
         )  # , lr=2 * 10e-4)
         self.curr_step = 0
         self.curr_test_loss = -1.0
