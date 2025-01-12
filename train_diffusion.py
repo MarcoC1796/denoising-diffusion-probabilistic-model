@@ -71,16 +71,15 @@ class DiffusionTrainer:
                 break
             t_start = time.perf_counter()
             x_0 = x_0.to(self.device)
-            batch_size = len(x_0)
             x_0 = (x_0 * 2) - 1
             assert x_0.max() <= 1.0
             assert x_0.min() >= -1.0
 
-            eps = get_noise(batch_size, self.model_config, self.device)
+            eps = get_noise(self.batch_size, self.model_config, self.device)
             t = torch.randint(
-                low=1, high=self.T + 1, size=(batch_size,), device=self.device
+                low=1, high=self.T + 1, size=(self.batch_size,), device=self.device
             )
-            alpha_bar_t = self.alpha_bar_cache(t).reshape(batch_size, 1, 1, 1)
+            alpha_bar_t = self.alpha_bar_cache(t).reshape(self.batch_size, 1, 1, 1)
             x_t = torch.sqrt(alpha_bar_t) * x_0 + torch.sqrt(1 - alpha_bar_t) * eps
 
             epsilon_pred = self.model(x_t, t)
@@ -98,9 +97,9 @@ class DiffusionTrainer:
                 if (step + 1) % eval_steps == 0:
                     self.curr_test_loss, self.curr_dt_test = self.eval()
                 dt = t_end - t_start
-                current = (step + 1) * batch_size
-                images_per_sec = batch_size / dt
-                pix_per_sec = self.model.config.in_img_S**2 / dt
+                current = (step + 1) * self.batch_size
+                images_per_sec = self.batch_size / dt
+                pix_per_sec = self.batch_size * self.model.config.in_img_S**2 / dt
                 print(
                     f"step {self.curr_step:4d} | loss: {loss.item():.6f} | dt: {dt * 1000:.2f}ms | img/sec: {images_per_sec:.2f} | pix/sec: {pix_per_sec:.2f} | {current:>5d}/{size:>5d} | test loss: {self.curr_test_loss:.6f} | dt test loss: {self.curr_dt_test:.2f}"
                 )
