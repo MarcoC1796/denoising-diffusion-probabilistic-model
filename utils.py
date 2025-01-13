@@ -1,8 +1,10 @@
 import torch
+from config import UNetConfig
+from torch import Tensor
 
 
 class AlphaBarCache:
-    def __init__(self, T, beta_1=10e-4, beta_T=0.02, device="cpu"):
+    def __init__(self, T, beta_1=0.0001, beta_T=0.02, device="cpu"):
         self.beta_1 = beta_1
         self.beta_T = beta_T
         self.T = T
@@ -20,7 +22,7 @@ class AlphaBarCache:
         )
 
 
-def get_noise(batch_size, config, device):
+def get_noise(batch_size: int, config: UNetConfig, device: str) -> Tensor:
     eps = torch.normal(
         0,
         1,

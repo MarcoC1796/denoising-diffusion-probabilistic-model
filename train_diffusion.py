@@ -46,12 +46,12 @@ class DiffusionTrainer:
         self.curr_dt_test = -1.0
 
     def load_data(self) -> None:
-        transforms = v2.Compose([ToTensor(), v2.RandomHorizontalFlip()])
-        train_data = datasets.CIFAR10(
-            root="data", train=True, download=True, transform=transforms
+        transforms = v2.Compose([ToTensor(), v2.Resize((256, 256))])
+        train_data = datasets.CelebA(
+            root="data", split="train", download=True, transform=transforms
         )
-        test_data = datasets.CIFAR10(
-            root="data", train=False, download=True, transform=transforms
+        test_data = datasets.CelebA(
+            root="data", split="valid", download=True, transform=transforms
         )
         self.train_dataloader = DataLoader(
             train_data, batch_size=self.batch_size, shuffle=self.shuffle
@@ -133,10 +133,11 @@ class DiffusionTrainer:
     def save_model(self, save_path: str):
         torch.save(self.model.state_dict(), save_path)
 
-    def run_training(self) -> None:
+    def run_training(self, save_path: str = "diffusion.pth") -> None:
         self.load_data()
         temp_max_eval_steps = self.max_eval_steps
-        self.max_eval_steps = None
+        self.max_eval_steps = 200
+        print("Getting initial Test Loss ...")
         initial_test_loss, dt = self.eval()
         self.max_eval_steps = temp_max_eval_steps
         print(f"Initial Test Loss: {initial_test_loss:.6f} | dt: {dt}")
@@ -153,23 +154,34 @@ class DiffusionTrainer:
         self.max_eval_steps = temp_max_eval_steps
         print(f"Final Test Loss: {final_test_loss:.6f} | dt: {dt}")
         print("Saving model")
-        self.save_model("diffusion.pth")
+        self.save_model(save_path=save_path)
         print("Done!")
 
 
 def main() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("device:", device)
-    config = UNetConfig()
+    config = UNetConfig(
+        in_img_S=256, in_img_C=3, ch_mult=(1, 1, 2, 2, 4, 4), dropout_rate=0.0
+    )
     model = UNet(config).to(device)
-    trainer = DiffusionTrainer(model=model, model_config=config, device=device)
+    trainer = DiffusionTrainer(
+        model=model,
+        model_config=config,
+        device=device,
+        epochs=1,
+        batch_size=4,
+        lr_rate=0.00002,
+        max_train_steps=1000,
+        max_eval_steps=20,
+    )
     trainer.run_training()
 
 
 if __name__ == "__main__":
     main()
 
-
+# TODO
 # save checkpoints
 # gradient clipping
 # fire cli

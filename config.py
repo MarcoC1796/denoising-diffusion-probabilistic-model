@@ -1,5 +1,4 @@
 from pydantic import BaseModel
-from utils import AlphaBarCache
 
 
 class UNetConfig(BaseModel):
