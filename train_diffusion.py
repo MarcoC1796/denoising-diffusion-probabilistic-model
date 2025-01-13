@@ -133,7 +133,12 @@ class DiffusionTrainer:
     def save_model(self, save_path: str):
         torch.save(self.model.state_dict(), save_path)
 
-    def run_training(self, save_path: str = "diffusion.pth") -> None:
+    def run_training(
+        self,
+        save_path: str = "diffusion.pth",
+        log_steps: int = 10,
+        eval_steps: int = 100,
+    ) -> None:
         self.load_data()
         temp_max_eval_steps = self.max_eval_steps
         self.max_eval_steps = 200
@@ -146,7 +151,7 @@ class DiffusionTrainer:
         self.curr_step = 0
         for t in range(self.epochs):
             print(f"Epoch {t + 1}/{self.epochs}\n-------------------------------")
-            self.train()
+            self.train(log_steps=log_steps, eval_steps=eval_steps)
 
         temp_max_eval_steps = self.max_eval_steps
         self.max_eval_steps = None
