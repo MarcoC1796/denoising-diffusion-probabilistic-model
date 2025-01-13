@@ -21,6 +21,7 @@ class DiffusionTrainer:
         device: str = "cpu",
         epochs: int = 10,
         batch_size: int = 64,
+        grad_accum_steps: int | None = None,
         lr_rate: float = 0.001,
         max_train_steps: int | None = None,
         max_eval_steps: int | None = 100,
@@ -31,6 +32,7 @@ class DiffusionTrainer:
         self.model_config = model_config
         self.epochs = epochs
         self.batch_size = batch_size
+        self.grad_accum_steps = grad_accum_steps
         self.max_train_steps = max_train_steps
         self.max_eval_steps = max_eval_steps
         self.T = num_diffusion_timesteps
@@ -63,46 +65,69 @@ class DiffusionTrainer:
     def train(self, log_steps=10, eval_steps=100) -> None:
         size = len(self.train_dataloader.dataset)  # type: ignore
         self.model.train()
+        curr_grad_accum_step = 0
         for (
-            step,
+            epoch_step,
             (x_0, _),
         ) in enumerate(self.train_dataloader):
-            if self.max_train_steps is not None and step >= self.max_train_steps:
+            if (
+                self.max_train_steps is not None
+                and self.curr_step >= self.max_train_steps
+            ):
                 break
-            t_start = time.perf_counter()
+            if self.grad_accum_steps is None or curr_grad_accum_step == 0:
+                t_start = time.perf_counter()
+
             x_0 = x_0.to(self.device)
             x_0 = (x_0 * 2) - 1
             assert x_0.max() <= 1.0
             assert x_0.min() >= -1.0
+            batch_size = len(x_0)
 
-            eps = get_noise(self.batch_size, self.model_config, self.device)
+            eps = get_noise(batch_size, self.model_config, self.device)
             t = torch.randint(
-                low=1, high=self.T + 1, size=(self.batch_size,), device=self.device
+                low=1, high=self.T + 1, size=(batch_size,), device=self.device
             )
-            alpha_bar_t = self.alpha_bar_cache(t).reshape(self.batch_size, 1, 1, 1)
+            alpha_bar_t = self.alpha_bar_cache(t).reshape(batch_size, 1, 1, 1)
             x_t = torch.sqrt(alpha_bar_t) * x_0 + torch.sqrt(1 - alpha_bar_t) * eps
 
             epsilon_pred = self.model(x_t, t)
             loss = self.loss_fn(epsilon_pred, eps)
-
+            if self.grad_accum_steps is not None:
+                loss /= self.grad_accum_steps
             loss.backward()
+
+            if (
+                self.grad_accum_steps is not None
+                and curr_grad_accum_step < self.grad_accum_steps
+                and batch_size == self.batch_size
+            ):
+                curr_grad_accum_step += 1
+                print("accum_step:", curr_grad_accum_step)
+                continue
+
             self.optimizer.step()
             self.optimizer.zero_grad()
 
             self.curr_step += 1
+            curr_grad_accum_step = 0
 
             t_end = time.perf_counter()
 
-            if step > 0 and (step + 1) % log_steps == 0:
-                if (step + 1) % eval_steps == 0:
+            if self.curr_step > 0 and (self.curr_step + 1) % log_steps == 0:
+                if (self.curr_step + 1) % eval_steps == 0:
                     self.curr_test_loss, self.curr_dt_test = self.eval()
                 dt = t_end - t_start
-                current = (step + 1) * self.batch_size
-                images_per_sec = self.batch_size / dt
-                pix_per_sec = self.batch_size * self.model.config.in_img_S**2 / dt
+                current = (epoch_step + 1) * batch_size
+                images_per_sec = batch_size / dt
+                pix_per_sec = batch_size * self.model.config.in_img_S**2 / dt
                 print(
                     f"step {self.curr_step:4d} | loss: {loss.item():.6f} | dt: {dt * 1000:.2f}ms | img/sec: {images_per_sec:.2f} | pix/sec: {pix_per_sec:.2f} | {current:>5d}/{size:>5d} | test loss: {self.curr_test_loss:.6f} | dt test loss: {self.curr_dt_test:.2f}"
                 )
+
+        if curr_grad_accum_step != 0:
+            self.optimizer.step()
+            self.optimizer.zero_grad()
 
     def eval(self) -> tuple[float, float]:
         t_start = time.time()
@@ -156,18 +181,17 @@ class DiffusionTrainer:
 def main() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("device:", device)
-    config = UNetConfig(
-        in_img_S=256, in_img_C=3, ch_mult=(1, 1, 2, 2, 4, 4), dropout_rate=0.0
-    )
+    config = UNetConfig(in_img_S=256, in_img_C=3, ch_mult=(1, 2, 4), dropout_rate=0.0)
     model = UNet(config).to(device)
     trainer = DiffusionTrainer(
         model=model,
         model_config=config,
         device=device,
         epochs=1,
-        batch_size=4,
+        batch_size=1,
+        grad_accum_steps=3,
         lr_rate=0.00002,
-        max_train_steps=1000,
+        max_train_steps=10,
         max_eval_steps=20,
     )
     trainer.run_training()

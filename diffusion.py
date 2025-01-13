@@ -44,7 +44,6 @@ class Diffusion:
         self.log_variance = torch.log(
             torch.cat((self.posterior_variance[1:2], self.betas[1:]), dim=0)
         )
-        print(self.posterior_variance[1:2], self.posterior_variance[1:2].shape)
 
     def load_weights(self, weights_path: str):
         self.weights_path = weights_path
