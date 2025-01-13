@@ -140,12 +140,7 @@ class DiffusionTrainer:
         eval_steps: int = 100,
     ) -> None:
         self.load_data()
-        temp_max_eval_steps = self.max_eval_steps
-        self.max_eval_steps = 200
-        print("Getting initial Test Loss ...")
-        initial_test_loss, dt = self.eval()
-        self.max_eval_steps = temp_max_eval_steps
-        print(f"Initial Test Loss: {initial_test_loss:.6f} | dt: {dt}")
+        print("Getting initial Eval Loss ...")
         self.curr_test_loss, self.curr_dt_test = self.eval()
         print(f"Test time: {self.curr_dt_test:.6f}")
         self.curr_step = 0
@@ -153,11 +148,6 @@ class DiffusionTrainer:
             print(f"Epoch {t + 1}/{self.epochs}\n-------------------------------")
             self.train(log_steps=log_steps, eval_steps=eval_steps)
 
-        temp_max_eval_steps = self.max_eval_steps
-        self.max_eval_steps = None
-        final_test_loss, dt = self.eval()
-        self.max_eval_steps = temp_max_eval_steps
-        print(f"Final Test Loss: {final_test_loss:.6f} | dt: {dt}")
         print("Saving model")
         self.save_model(save_path=save_path)
         print("Done!")
