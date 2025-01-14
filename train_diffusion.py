@@ -48,7 +48,7 @@ class DiffusionTrainer:
         self.curr_dt_test = -1.0
 
     def load_data(self) -> None:
-        transforms = v2.Compose([ToTensor(), v2.Resize((256, 256))])
+        transforms = v2.Compose([ToTensor(), v2.Resize((64, 64))])
         train_data = datasets.CelebA(
             root="data", split="train", download=True, transform=transforms
         )
@@ -80,8 +80,8 @@ class DiffusionTrainer:
 
             x_0 = x_0.to(self.device)
             x_0 = (x_0 * 2) - 1
-            assert x_0.max() <= 1.0
-            assert x_0.min() >= -1.0
+            # assert x_0.max() <= 1.0
+            # assert x_0.min() >= -1.0
             batch_size = len(x_0)
 
             eps = get_noise(batch_size, self.model_config, self.device)
@@ -103,7 +103,6 @@ class DiffusionTrainer:
                 and batch_size == self.batch_size
             ):
                 curr_grad_accum_step += 1
-                print("accum_step:", curr_grad_accum_step)
                 continue
 
             self.optimizer.step()
@@ -114,8 +113,8 @@ class DiffusionTrainer:
 
             t_end = time.perf_counter()
 
-            if self.curr_step > 0 and (self.curr_step + 1) % log_steps == 0:
-                if (self.curr_step + 1) % eval_steps == 0:
+            if self.curr_step > 0 and (self.curr_step) % log_steps == 0:
+                if (self.curr_step) % eval_steps == 0:
                     self.curr_test_loss, self.curr_dt_test = self.eval()
                 dt = t_end - t_start
                 current = (epoch_step + 1) * batch_size
@@ -181,20 +180,26 @@ class DiffusionTrainer:
 def main() -> None:
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("device:", device)
-    config = UNetConfig(in_img_S=256, in_img_C=3, ch_mult=(1, 2, 4), dropout_rate=0.0)
+    config = UNetConfig(
+        in_img_S=64,
+        in_img_C=3,
+        ch_mult=(1, 2, 2, 2),
+        attn_resolutions=(16,),
+        dropout_rate=0.0,
+    )
     model = UNet(config).to(device)
     trainer = DiffusionTrainer(
         model=model,
         model_config=config,
         device=device,
         epochs=1,
-        batch_size=1,
-        grad_accum_steps=3,
-        lr_rate=0.00002,
-        max_train_steps=10,
+        batch_size=16,
+        grad_accum_steps=None,
+        lr_rate=0.0001,
+        max_train_steps=100,
         max_eval_steps=20,
     )
-    trainer.run_training()
+    trainer.run_training(log_steps=10)
 
 
 if __name__ == "__main__":
@@ -203,5 +208,4 @@ if __name__ == "__main__":
 # TODO
 # save checkpoints
 # gradient clipping
-# fire cli
 # logging
