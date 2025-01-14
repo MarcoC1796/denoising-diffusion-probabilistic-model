@@ -27,6 +27,7 @@ class DiffusionTrainer:
         max_eval_steps: int | None = 100,
         num_diffusion_timesteps: int = 1000,
         shuffle: bool = True,
+        save_checkpoint_steps: int | None = None,
     ):
         self.model = model
         self.model_config = model_config
@@ -46,6 +47,7 @@ class DiffusionTrainer:
         self.curr_step = 0
         self.curr_test_loss = -1.0
         self.curr_dt_test = -1.0
+        self.save_checkpoint_steps = save_checkpoint_steps
 
     def load_data(self) -> None:
         transforms = v2.Compose([ToTensor(), v2.Resize((64, 64))])
@@ -110,15 +112,18 @@ class DiffusionTrainer:
             self.curr_step += 1
             curr_grad_accum_step = 0
 
+            if (
+                self.save_checkpoint_steps is not None
+                and self.curr_step % self.save_checkpoint_steps == 0
+            ):
+                self.save_model("checkpoint.pth")
+
             t_end = time.perf_counter()
 
             if self.curr_step > 0 and (self.curr_step) % log_steps == 0:
                 if (self.curr_step) % eval_steps == 0:
                     self.curr_test_loss, self.curr_dt_test = self.eval()
                 dt = t_end - t_start
-                print("epoch step", epoch_step)
-                print("batch_size", batch_size)
-                print("x_0.shape", x_0.shape)
                 current = (epoch_step + 1) * batch_size
                 images_per_sec = batch_size / dt
                 pix_per_sec = batch_size * self.model.config.in_img_S**2 / dt
@@ -200,6 +205,7 @@ def main() -> None:
         lr_rate=0.0001,
         max_train_steps=10,
         max_eval_steps=20,
+        save_checkpoint_steps=5,
     )
     trainer.run_training(log_steps=1)
 
