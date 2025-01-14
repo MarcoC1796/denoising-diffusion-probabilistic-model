@@ -1,10 +1,14 @@
 import math
+import os
 from enum import Enum
+from typing import Type, TypeVar
 
 import torch
 import torch.nn.functional as F
 from config import UNetConfig
 from torch import Tensor, nn
+
+I = TypeVar("I", bound="UNet")  # noqa: E741
 
 
 class LayerType(Enum):
@@ -306,6 +310,16 @@ class UNet(nn.Module):
 
         assert len(ds_output_channels) == 0
         return input_channels, output_channels, spatial_sizes, layer_types
+
+    @classmethod
+    def from_pth(cls: Type[I], config: UNetConfig, pth_path: str) -> I:
+        model = cls(config)
+        if os.path.exists(pth_path):
+            model.load_state_dict(torch.load(pth_path, weights_only=True))
+            print(f"Loaded model from {pth_path}")
+        else:
+            raise FileNotFoundError(f"Error: File {pth_path} not found!")
+        return model
 
 
 if __name__ == "__main__":
