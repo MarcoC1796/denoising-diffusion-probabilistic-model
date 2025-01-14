@@ -3,6 +3,7 @@ import os
 import torch
 from config import UNetConfig
 from torch import Tensor
+from tqdm.auto import tqdm  # type: ignore
 from unet import UNet
 from utils import get_noise
 
@@ -50,13 +51,15 @@ class Diffusion:
         print("Loading pretrained model")
         self.model.load_state_dict(torch.load(weights_path, weights_only=True))
 
-    def p_sample_loop(self, num_samples: int = 1) -> Tensor:
+    def p_sample_loop(self, num_samples: int = 1, track=False) -> Tensor:
         self.model.eval()
         with torch.no_grad():
             img_t = get_noise(num_samples, self.model_config, self.device)
-            for t in reversed(
+            iterator = reversed(
                 torch.arange(start=1, end=self.T + 1, device=self.device)
-            ):
+            )
+            iterator = tqdm(iterator, maxinterval=self.T) if track else iterator
+            for t in iterator:
                 sqrt_alpha_inv = 1 / torch.sqrt(self.alphas[t - 1])
                 eps_scale = (1 - self.alphas[t - 1]) / torch.sqrt(
                     1 - self.alphas_bar[t - 1]
