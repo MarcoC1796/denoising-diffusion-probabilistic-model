@@ -97,12 +97,11 @@ class DiffusionTrainer:
                 loss /= self.grad_accum_steps
             loss.backward()
 
+            curr_grad_accum_step += 1
             if (
                 self.grad_accum_steps is not None
                 and curr_grad_accum_step < self.grad_accum_steps
-                and batch_size == self.batch_size
             ):
-                curr_grad_accum_step += 1
                 continue
 
             self.optimizer.step()
@@ -117,6 +116,9 @@ class DiffusionTrainer:
                 if (self.curr_step) % eval_steps == 0:
                     self.curr_test_loss, self.curr_dt_test = self.eval()
                 dt = t_end - t_start
+                print("epoch step", epoch_step)
+                print("batch_size", batch_size)
+                print("x_0.shape", x_0.shape)
                 current = (epoch_step + 1) * batch_size
                 images_per_sec = batch_size / dt
                 pix_per_sec = batch_size * self.model.config.in_img_S**2 / dt
@@ -194,12 +196,12 @@ def main() -> None:
         device=device,
         epochs=1,
         batch_size=16,
-        grad_accum_steps=None,
+        grad_accum_steps=2,
         lr_rate=0.0001,
-        max_train_steps=100,
+        max_train_steps=10,
         max_eval_steps=20,
     )
-    trainer.run_training(log_steps=10)
+    trainer.run_training(log_steps=1)
 
 
 if __name__ == "__main__":
