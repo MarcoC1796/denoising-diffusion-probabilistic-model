@@ -126,6 +126,7 @@ class DiffusionTrainer:
             if self.curr_step > 0 and (self.curr_step) % log_steps == 0:
                 if (self.curr_step) % eval_steps == 0:
                     self.curr_test_loss, self.curr_dt_test = self.eval()
+                    mlflow.log_metric("test loss", self.curr_test_loss,step=self.curr_step, synchronous=False)
                 dt = t_end - t_start
                 current = (epoch_step + 1) * batch_size
                 images_per_sec = batch_size / dt
@@ -159,7 +160,7 @@ class DiffusionTrainer:
                 test_loss += self.loss_fn(pred, eps).item()
                 num_batches +=1
 
-        test_loss /= num_batches + 1e-5
+        test_loss /= num_batches if num_batches != 0 else 1
         t_end = time.time()
         dt = t_end - t_start
 
