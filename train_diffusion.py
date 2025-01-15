@@ -1,4 +1,5 @@
 import time
+import mlflow
 
 import torch
 from config import UNetConfig
@@ -112,6 +113,8 @@ class DiffusionTrainer:
             self.curr_step += 1
             curr_grad_accum_step = 0
 
+            mlflow.log_metric("loss", loss.item(),step=self.curr_step, synchronous=False)
+
             if (
                 self.save_checkpoint_steps is not None
                 and self.curr_step % self.save_checkpoint_steps == 0
@@ -184,7 +187,9 @@ class DiffusionTrainer:
         print("Done!")
 
 
-def main() -> None:
+
+
+if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     print("device:", device)
     config = UNetConfig(
@@ -194,24 +199,21 @@ def main() -> None:
         attn_resolutions=(16,),
         dropout_rate=0.0,
     )
-    model = UNet(config).to(device)
+    model = UNet.from_pth(config, 'checkpoint_3.pth').to(device)
     trainer = DiffusionTrainer(
         model=model,
         model_config=config,
         device=device,
         epochs=1,
-        batch_size=16,
-        grad_accum_steps=2,
+        batch_size=8,
+        grad_accum_steps=None,
         lr_rate=0.0001,
         max_train_steps=10,
         max_eval_steps=20,
         save_checkpoint_steps=5,
     )
-    trainer.run_training(log_steps=1)
-
-
-if __name__ == "__main__":
-    main()
+    with mlflow.start_run():
+        trainer.run_training(log_steps=1)
 
 # TODO
 # save checkpoints

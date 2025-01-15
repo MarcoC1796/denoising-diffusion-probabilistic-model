@@ -20,7 +20,7 @@ class Diffusion:
         num_diffusion_timesteps: int = 1000,
         device: str = "cpu",
         weights_path: str | None = None,
-        beta_1: float = 0.001,
+        beta_1: float = 0.0001,
         beta_T: float = 0.02,
     ):
         self.T = num_diffusion_timesteps
