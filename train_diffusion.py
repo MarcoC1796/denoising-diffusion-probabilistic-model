@@ -44,7 +44,7 @@ class DiffusionTrainer:
         self.loss_fn = nn.MSELoss()
         self.optimizer = torch.optim.Adam(
             params=self.model.parameters(), lr=lr_rate
-        )  # , lr=2 * 10e-4)
+        )
         self.curr_step = 0
         self.curr_test_loss = -1.0
         self.curr_dt_test = -1.0
@@ -140,7 +140,7 @@ class DiffusionTrainer:
 
     def eval(self) -> tuple[float, float]:
         t_start = time.time()
-        num_batches = len(self.eval_dataloader)
+        num_batches = 0
         self.model.eval()
         test_loss = 0.0
         with torch.no_grad():
@@ -157,8 +157,9 @@ class DiffusionTrainer:
                 x_t = torch.sqrt(alpha_bar_t) * x_0 + torch.sqrt(1 - alpha_bar_t) * eps
                 pred = self.model(x_t, t)
                 test_loss += self.loss_fn(pred, eps).item()
+                num_batches +=1
 
-        test_loss /= num_batches
+        test_loss /= num_batches + 1e-5
         t_end = time.time()
         dt = t_end - t_start
 
@@ -216,6 +217,4 @@ if __name__ == "__main__":
         trainer.run_training(log_steps=1)
 
 # TODO
-# save checkpoints
 # gradient clipping
-# logging
