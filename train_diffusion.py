@@ -108,7 +108,7 @@ class DiffusionTrainer:
             ):
                 continue
 
-            norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), max_norm=1.0)
             self.optimizer.step()
             self.optimizer.zero_grad()
 
