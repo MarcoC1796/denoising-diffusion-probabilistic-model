@@ -1,6 +1,6 @@
 import time
-import mlflow
 
+import mlflow
 import torch
 from config import UNetConfig
 from torch import nn
@@ -29,7 +29,7 @@ class DiffusionTrainer:
         num_diffusion_timesteps: int = 1000,
         shuffle: bool = True,
         save_checkpoint_steps: int | None = None,
-        save_best_checkpoint: bool = False
+        save_best_checkpoint: bool = False,
     ):
         self.model = model
         self.model_config = model_config
@@ -43,15 +43,13 @@ class DiffusionTrainer:
         self.device = device
         self.alpha_bar_cache = AlphaBarCache(T=self.T, device=self.device)
         self.loss_fn = nn.MSELoss()
-        self.optimizer = torch.optim.Adam(
-            params=self.model.parameters(), lr=lr_rate
-        )
+        self.optimizer = torch.optim.Adam(params=self.model.parameters(), lr=lr_rate)
         self.curr_step = 0
         self.curr_test_loss = -1.0
         self.curr_dt_test = -1.0
         self.save_checkpoint_steps = save_checkpoint_steps
         self.save_best_checkpoint = save_best_checkpoint
-        self.min_loss = float('inf')
+        self.min_loss = float("inf")
 
     def load_data(self) -> None:
         transforms = v2.Compose([ToTensor(), v2.Resize((64, 64))])
@@ -110,6 +108,7 @@ class DiffusionTrainer:
             ):
                 continue
 
+            norm = torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             self.optimizer.step()
             self.optimizer.zero_grad()
 
@@ -122,7 +121,9 @@ class DiffusionTrainer:
             self.curr_step += 1
             curr_grad_accum_step = 0
 
-            mlflow.log_metric("loss", loss.item(),step=self.curr_step, synchronous=False)
+            mlflow.log_metric(
+                "loss", loss.item(), step=self.curr_step, synchronous=False
+            )
 
             if (
                 self.save_checkpoint_steps is not None
@@ -135,13 +136,18 @@ class DiffusionTrainer:
             if self.curr_step > 0 and (self.curr_step) % log_steps == 0:
                 if (self.curr_step) % eval_steps == 0:
                     self.curr_test_loss, self.curr_dt_test = self.eval()
-                    mlflow.log_metric("test loss", self.curr_test_loss,step=self.curr_step, synchronous=False)
+                    mlflow.log_metric(
+                        "test loss",
+                        self.curr_test_loss,
+                        step=self.curr_step,
+                        synchronous=False,
+                    )
                 dt = t_end - t_start
                 current = (epoch_step + 1) * batch_size
                 images_per_sec = batch_size / dt
                 pix_per_sec = batch_size * self.model.config.in_img_S**2 / dt
                 print(
-                    f"step {self.curr_step:4d} | loss: {loss.item():.6f} | dt: {dt * 1000:.2f}ms | img/sec: {images_per_sec:.2f} | pix/sec: {pix_per_sec:.2f} | {current:>5d}/{size:>5d} | test loss: {self.curr_test_loss:.6f} | dt test loss: {self.curr_dt_test:.2f}"
+                    f"step {self.curr_step:4d} | loss: {loss.item():.6f} | norm: {norm:.4f} | dt: {dt * 1000:.2f}ms | img/sec: {images_per_sec:.2f} | pix/sec: {pix_per_sec:.2f} | {current:>5d}/{size:>5d} | test loss: {self.curr_test_loss:.6f} | dt test loss: {self.curr_dt_test:.2f}"
                 )
 
         if curr_grad_accum_step != 0:
@@ -167,7 +173,7 @@ class DiffusionTrainer:
                 x_t = torch.sqrt(alpha_bar_t) * x_0 + torch.sqrt(1 - alpha_bar_t) * eps
                 pred = self.model(x_t, t)
                 test_loss += self.loss_fn(pred, eps).item()
-                num_batches +=1
+                num_batches += 1
 
         test_loss /= num_batches if num_batches != 0 else 1
         t_end = time.time()
@@ -188,7 +194,7 @@ class DiffusionTrainer:
         print("Getting initial Eval Loss ...")
         self.curr_test_loss, self.curr_dt_test = self.eval()
         print(f"Test time: {self.curr_dt_test:.6f}")
-        mlflow.log_metric("test loss", self.curr_test_loss,step=0, synchronous=False)
+        mlflow.log_metric("test loss", self.curr_test_loss, step=0, synchronous=False)
         self.curr_step = 0
         for t in range(self.epochs):
             print(f"Epoch {t + 1}/{self.epochs}\n-------------------------------")
@@ -197,8 +203,6 @@ class DiffusionTrainer:
         print("Saving model")
         self.save_model(save_path=save_path)
         print("Done!")
-
-
 
 
 if __name__ == "__main__":
@@ -211,7 +215,7 @@ if __name__ == "__main__":
         attn_resolutions=(16,),
         dropout_rate=0.0,
     )
-    model = UNet.from_pth(config, 'checkpoint_3.pth').to(device)
+    model = UNet.from_pth(config, "checkpoint_3.pth").to(device)
     trainer = DiffusionTrainer(
         model=model,
         model_config=config,
