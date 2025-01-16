@@ -124,7 +124,7 @@ class DiffusionTrainer:
             curr_grad_accum_step = 0
 
             mlflow.log_metric(
-                "loss", loss.item(), step=self.curr_step, synchronous=False
+                "loss", curr_total_loss, step=self.curr_step, synchronous=False
             )
 
             if (
