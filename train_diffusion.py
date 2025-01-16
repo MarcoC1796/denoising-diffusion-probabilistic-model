@@ -29,6 +29,7 @@ class DiffusionTrainer:
         num_diffusion_timesteps: int = 1000,
         shuffle: bool = True,
         save_checkpoint_steps: int | None = None,
+        save_best_checkpoint: bool = False
     ):
         self.model = model
         self.model_config = model_config
@@ -49,6 +50,8 @@ class DiffusionTrainer:
         self.curr_test_loss = -1.0
         self.curr_dt_test = -1.0
         self.save_checkpoint_steps = save_checkpoint_steps
+        self.save_best_checkpoint = save_best_checkpoint
+        self.min_loss = float('inf')
 
     def load_data(self) -> None:
         transforms = v2.Compose([ToTensor(), v2.Resize((64, 64))])
@@ -109,6 +112,12 @@ class DiffusionTrainer:
 
             self.optimizer.step()
             self.optimizer.zero_grad()
+
+            loss_item = loss.item()
+            if loss_item < self.min_loss:
+                self.min_loss = loss_item
+                if self.save_best_checkpoint:
+                    self.save_model("best_checkpoint.pth")
 
             self.curr_step += 1
             curr_grad_accum_step = 0
@@ -179,6 +188,7 @@ class DiffusionTrainer:
         print("Getting initial Eval Loss ...")
         self.curr_test_loss, self.curr_dt_test = self.eval()
         print(f"Test time: {self.curr_dt_test:.6f}")
+        mlflow.log_metric("test loss", self.curr_test_loss,step=0, synchronous=False)
         self.curr_step = 0
         for t in range(self.epochs):
             print(f"Epoch {t + 1}/{self.epochs}\n-------------------------------")
