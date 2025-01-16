@@ -70,6 +70,7 @@ class DiffusionTrainer:
         size = len(self.train_dataloader.dataset)  # type: ignore
         self.model.train()
         curr_grad_accum_step = 0
+        curr_total_loss = 0.0
         for (
             epoch_step,
             (x_0, _),
@@ -100,6 +101,7 @@ class DiffusionTrainer:
             if self.grad_accum_steps is not None:
                 loss /= self.grad_accum_steps
             loss.backward()
+            curr_total_loss += loss.item()
 
             curr_grad_accum_step += 1
             if (
@@ -147,8 +149,10 @@ class DiffusionTrainer:
                 images_per_sec = batch_size / dt
                 pix_per_sec = batch_size * self.model.config.in_img_S**2 / dt
                 print(
-                    f"step {self.curr_step:4d} | loss: {loss.item():.6f} | norm: {norm:.4f} | dt: {dt * 1000:.2f}ms | img/sec: {images_per_sec:.2f} | pix/sec: {pix_per_sec:.2f} | {current:>5d}/{size:>5d} | test loss: {self.curr_test_loss:.6f} | dt test loss: {self.curr_dt_test:.2f}"
+                    f"step {self.curr_step:4d} | loss: {curr_total_loss:.6f} | norm: {norm:.4f} | dt: {dt * 1000:.2f}ms | img/sec: {images_per_sec:.2f} | pix/sec: {pix_per_sec:.2f} | {current:>5d}/{size:>5d} | test loss: {self.curr_test_loss:.6f} | dt test loss: {self.curr_dt_test:.2f}"
                 )
+
+            curr_total_loss = 0
 
         if curr_grad_accum_step != 0:
             self.optimizer.step()
@@ -222,10 +226,10 @@ if __name__ == "__main__":
         device=device,
         epochs=1,
         batch_size=8,
-        grad_accum_steps=None,
+        grad_accum_steps=64,
         lr_rate=0.0001,
         max_train_steps=10,
-        max_eval_steps=20,
+        max_eval_steps=2,
         save_checkpoint_steps=5,
     )
     with mlflow.start_run():
