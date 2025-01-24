@@ -170,8 +170,8 @@ class DiffusionTrainer:
                 x_0 = x_0.to(self.device)
                 batch_size = len(x_0)
                 eps = get_noise(batch_size, self.model_config, self.device)
-                t = torch.randint(
-                    low=1, high=self.T + 1, size=(batch_size,), device=self.device
+                t = torch.full(
+                    size=(batch_size,), fill_value=self.T, device=self.device
                 )
                 alpha_bar_t = self.alpha_bar_cache(t).reshape(batch_size, 1, 1, 1)
                 x_t = torch.sqrt(alpha_bar_t) * x_0 + torch.sqrt(1 - alpha_bar_t) * eps
@@ -226,14 +226,13 @@ if __name__ == "__main__":
         device=device,
         epochs=1,
         batch_size=8,
-        grad_accum_steps=64,
+        grad_accum_steps=8,
         lr_rate=0.0001,
-        max_train_steps=10,
-        max_eval_steps=2,
-        save_checkpoint_steps=5,
+        max_train_steps=100,
+        max_eval_steps=10,
     )
     with mlflow.start_run():
-        trainer.run_training(log_steps=1)
+        trainer.run_training(log_steps=1, eval_steps=1)
 
 # TODO
 # gradient clipping
